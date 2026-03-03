@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart Notes Pro</title>
+    
+    <!-- PDF Generation Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        :root {
+            /* --- LIGHT THEME VARIABLES --- */
+            --primary-color: #ffb300;
+            --primary-hover: #ffca28;
+            --accent-color: #2979ff;
+            --success-color: #00b894;
+            --danger-color: #ff7675;
+            
+            --bg-body: #f4f6f9;
+            --bg-sidebar: #ffffff;
+            --bg-card: #ffffff;
+            --bg-input: #f8f9fa;
+            
+            --text-main: #2d3436;
+            --text-secondary: #636e72;
+            --text-placeholder: #b2bec3;
+            
+            --border-color: rgba(0,0,0,0.05);
+            --divider-color: #dfe6e9;
+            
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.04);
+            --shadow-md: 0 8px 24px rgba(0,0,0,0.06);
+            --shadow-float: 0 15px 35px rgba(0,0,0,0.1);
+            
+            --radius-md: 12px;
+            --radius-lg: 20px;
+            
+            --font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            
+            --sidebar-width: 320px;
+        }
+
+        /* --- DARK THEME VARIABLES --- */
+        [data-theme="dark"] {
+            --primary-color: #ffb300;
+            --primary-hover: #ffca28;
+            --accent-color: #54a0ff;
+            --success-color: #55efc4;
+            --danger-color: #ff7675;
+            
+            --bg-body: #121212;
+            --bg-sidebar: #1e1e1e;
+            --bg-card: #252525;
+            --bg-input: #2d2d2d;
+            
+            --text-main: #dfe6e9;
+            --text-secondary: #b2bec3;
+            --text-placeholder: #636e72;
+            
+            --border-color: rgba(255,255,255,0.05);
+            --divider-color: #333333;
+            
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+            --shadow-md: 0 8px 24px rgba(0,0,0,0.4);
+            --shadow-float: 0 15px 35px rgba(0,0,0,0.5);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            height: 100vh; display: flex; overflow: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
+            font-size: 16px;
+        }
+        ::selection { background: rgba(255, 179, 0, 0.3); color: #000; }
+        
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-thumb { background: var(--divider-color); border-radius: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+
+        /* --- MOBILE OVERLAY --- */
+        .mobile-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 15; /* Below sidebar (20) but above content */
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .mobile-overlay.active {
+            display: block;
+            opacity: 1;
+        }
+
+        /* --- Sidebar --- */
+        aside {
+            width: var(--sidebar-width); 
+            background: var(--bg-sidebar); 
+            border-right: 1px solid var(--border-color);
+            display: flex; flex-direction: column; flex-shrink: 0; 
+            z-index: 20;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s;
+        }
+
+        .sidebar-header { padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+        .header-top { display: flex; justify-content: space-between; align-items: center; }
+        
+        .app-title { font-size: 1.2rem; font-weight: 800; display: flex; align-items: center; gap: 8px; color: var(--text-main); }
+        .app-title svg { fill: var(--primary-color); width: 24px; height: 24px; }
+
+        .theme-toggle {
+            background: var(--bg-input); border: none; cursor: pointer; width: 36px; height: 36px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            color: var(--text-main); transition: all 0.2s;
+        }
+        .theme-toggle:hover { transform: rotate(15deg); background: var(--divider-color); }
+
+        .btn-new {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+            color: #2d3436; border: none; padding: 12px; border-radius: var(--radius-md);
+            font-weight: 700; cursor: pointer; width: 100%; display: flex; align-items: center;
+            justify-content: center; gap: 8px; transition: all 0.2s; font-size: 0.9rem;
+            box-shadow: 0 4px 12px rgba(255, 179, 0, 0.25);
+        }
+        .btn-new:active { transform: scale(0.98); }
+
+        .search-box {
+            padding: 12px; background: var(--bg-input); border: 1px solid transparent;
+            border-radius: var(--radius-md); width: 100%; color: var(--text-main); transition: all 0.2s; font-size: 1rem;
+        }
+        .search-box:focus { background: var(--bg-card); border-color: var(--primary-color); }
+
+        .note-list { flex: 1; overflow-y: auto; list-style: none; padding: 0 10px 20px 10px; }
+        .note-item {
+            background: var(--bg-card); padding: 15px; border-radius: var(--radius-md); cursor: pointer;
+            transition: all 0.2s ease; margin-bottom: 10px; border: 1px solid var(--border-color);
+            position: relative;
+        }
+        .note-item:active { transform: scale(0.98); }
+        .note-item.active { background: var(--bg-body); border-left: 4px solid var(--primary-color); }
+        
+        .note-item-title { font-weight: 700; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 1rem; color: var(--text-main); }
+        .note-item-preview { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .note-item-date { font-size: 0.7rem; color: var(--text-placeholder); margin-top: 8px; font-weight: 600; text-transform: uppercase; }
+
+        .note-type-badge {
+            font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; background: var(--bg-input);
+            color: var(--text-secondary); font-weight: bold; text-transform: uppercase; margin-left: 8px;
+        }
+        .note-type-badge.event { color: var(--accent-color); background: rgba(41, 121, 255, 0.1); }
+
+        .btn-delete-note {
+            position: absolute; right: 10px; top: 10px; background: transparent; color: var(--text-placeholder);
+            border: none; border-radius: 6px; width: 32px; height: 32px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .btn-delete-note:hover { color: var(--danger-color); background: rgba(255, 118, 117, 0.1); }
+
+        /* --- Main Editor Area --- */
+        main { flex: 1; display: flex; flex-direction: column; background: var(--bg-body); position: relative; min-width: 0; }
+
+        .editor-container {
+            background: var(--bg-card); max-width: 900px; width: 100%; margin: 0 auto;
+            height: 100%; display: flex; flex-direction: column; overflow: hidden;
+        }
+
+        .editor-header { 
+            padding: 15px 20px; 
+            display: flex; justify-content: space-between; align-items: center; 
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-card);
+        }
+        
+        .title-wrapper { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
+        
+        .header-top-row { display: flex; align-items: center; gap: 10px; width: 100%; }
+        
+        .title-input {
+            font-size: 1.4rem; font-weight: 800; border: none; width: 100%; color: var(--text-main);
+            background: transparent; letter-spacing: -0.5px;
+        }
+        .title-input::placeholder { color: var(--text-placeholder); font-weight: 600; }
+
+        /* Mode Switcher */
+        .mode-switch {
+            display: flex; background: var(--bg-input); padding: 3px; border-radius: 8px; flex-shrink: 0;
+        }
+        .mode-btn {
+            border: none; background: transparent; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+            font-weight: 600; color: var(--text-secondary); transition: 0.2s; font-size: 0.85rem;
+        }
+        .mode-btn.active { background: var(--bg-card); color: var(--primary-color); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+        .editor-actions { display: flex; gap: 8px; flex-shrink: 0; margin-left: 10px; }
+        .btn-icon {
+            background: var(--bg-input); border: 1px solid transparent; border-radius: 8px;
+            padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;
+            font-size: 0.8rem; font-weight: 600; color: var(--text-main); transition: all 0.2s;
+        }
+        .btn-icon:hover { background: var(--divider-color); }
+        .btn-primary { background: var(--text-main); color: var(--bg-body); }
+        .btn-primary:hover { background: var(--primary-color); color: #000; }
+
+        /* Mobile Menu Button */
+        .mobile-menu-btn { 
+            background: none; border: none; font-size: 1.5rem; cursor: pointer; 
+            color: var(--text-main); padding: 5px; margin-right: 5px; display: none; 
+        }
+
+        /* Toolbar */
+        .toolbar {
+            padding: 10px 20px; border-bottom: 1px solid var(--border-color); display: flex; gap: 6px;
+            flex-wrap: wrap; background: var(--bg-card);
+        }
+
+        .tool-btn {
+            width: 36px; height: 36px; border: none; background: var(--bg-input); border-radius: 6px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-main); transition: all 0.2s;
+        }
+        .tool-btn:hover { background: var(--divider-color); color: var(--primary-color); }
+        .tool-separator { width: 1px; background: var(--divider-color); margin: 6px 4px; }
+        
+        input[type="color"] {
+            width: 36px; height: 36px; padding: 0; border: none; background: transparent; cursor: pointer; border-radius: 6px;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; border: 1px solid var(--divider-color); }
+
+        /* Editor Body */
+        .editor-body {
+            flex: 1; padding: 20px; overflow-y: auto; font-size: 1.1rem;
+            line-height: 1.6; color: var(--text-main); display: none;
+        }
+        .editor-body.visible { display: block; }
+        .editor-body:empty:before { content: 'Start writing...'; color: var(--text-placeholder); font-style: italic; }
+
+        /* Empty State */
+        .empty-state {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100%; color: var(--text-secondary); text-align: center; padding: 20px;
+        }
+        .empty-state svg { width: 120px; height: 120px; fill: var(--divider-color); margin-bottom: 20px; opacity: 0.6; }
+        .empty-state h2 { font-size: 1.5rem; color: var(--text-main); margin-bottom: 10px; font-weight: 700; }
+
+        /* --- EVENT MODE STYLES --- */
+        .event-wrapper { display: none; flex-direction: column; height: 100%; background: var(--bg-card); }
+        .event-wrapper.visible { display: flex; }
+
+        .event-tabs-header {
+            background: var(--bg-input); padding: 10px 10px 0 10px; display: flex; gap: 5px;
+            border-bottom: 1px solid var(--border-color); flex-shrink: 0; overflow-x: auto;
+        }
+        .event-tab {
+            padding: 10px 20px; border-radius: 8px 8px 0 0; background: transparent;
+            color: var(--text-secondary); border: none; cursor: pointer; font-size: 0.9rem;
+            font-weight: 600; white-space: nowrap; transition: 0.2s;
+        }
+        .event-tab.active {
+            background: var(--bg-card); color: var(--primary-color); box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 2;
+        }
+        
+        .event-slide { 
+            display: none; flex: 1; padding: 20px; padding-bottom: 100px;
+            overflow-y: auto; animation: fadeIn 0.3s; min-height: 0;
+        }
+        .event-slide.active { display: flex; flex-direction: column; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Event Forms */
+        .form-section { margin-bottom: 20px; background: var(--bg-input); padding: 15px; border-radius: var(--radius-md); flex-shrink: 0; }
+        .form-section h3 { margin-bottom: 15px; color: var(--primary-color); font-size: 1rem; }
+        .input-group { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+        .input-field {
+            flex: 1; padding: 10px; border: 1px solid var(--border-color); background: var(--bg-card);
+            color: var(--text-main); border-radius: 6px; min-width: 80px; font-size: 1rem;
+        }
+        .btn-icon-small {
+            padding: 10px; border: none; border-radius: 6px; cursor: pointer; color: #fff; transition: 0.2s; flex-shrink: 0;
+        }
+        .btn-add { background: var(--success-color); } .btn-add:hover { filter: brightness(1.1); }
+        .btn-del { background: var(--danger-color); } .btn-del:hover { filter: brightness(1.1); }
+        .btn-edit { background: var(--accent-color); } .btn-edit:hover { filter: brightness(1.1); }
+        .btn-pdf { background: #e74c3c; } .btn-pdf:hover { filter: brightness(1.1); }
+
+        .global-target-box {
+            background: rgba(41, 121, 255, 0.1); padding: 12px; border-radius: var(--radius-md);
+            margin-bottom: 15px; border: 1px solid var(--accent-color); display: flex; gap: 10px;
+        }
+
+        .list-row { display: flex; align-items: center; gap: 8px; padding: 10px; border-bottom: 1px solid var(--border-color); background: var(--bg-card); margin-bottom: 5px; border-radius: 6px; }
+        .row-text { flex: 2; font-weight: 500; font-size: 0.95rem; }
+        .row-amount { flex: 1; text-align: right; font-family: monospace; }
+        
+        .row-price-input {
+            width: 70px; text-align: right; padding: 5px; border: 1px solid var(--border-color);
+            border-radius: 4px; background: var(--bg-input); color: var(--text-main); font-family: monospace;
+        }
+
+        .row-check { width: 20px; height: 20px; cursor: pointer; accent-color: var(--primary-color); }
+        .row-done .row-text { text-decoration: line-through; color: var(--text-placeholder); }
+
+        /* Summary Slide */
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .summary-card { background: var(--bg-input); padding: 15px; border-radius: var(--radius-md); text-align: center; border: 1px solid var(--border-color); }
+        .summary-card h4 { color: var(--text-secondary); margin-bottom: 5px; font-size: 0.8rem; }
+        .summary-card .big-number { font-size: 1.4rem; font-weight: 800; color: var(--text-main); }
+        .summary-card.positive .big-number { color: var(--success-color); }
+        .summary-card.negative .big-number { color: var(--danger-color); }
+
+        .data-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; background: var(--bg-card); border-radius: 8px; overflow: hidden; font-size: 0.9rem; }
+        .data-table th, .data-table td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        .data-table th { background: var(--bg-input); color: var(--text-secondary); font-weight: 600; }
+        .text-right { text-align: right; }
+
+        .btn-full-report {
+            width: 100%; padding: 14px; background: var(--primary-color); color: #000; border: none;
+            border-radius: var(--radius-md); font-size: 1rem; font-weight: 800; cursor: pointer;
+            margin-top: 20px; display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+
+        /* --- MODAL STYLES --- */
+        .modal {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0;
+            width: 100%; height: 100%; background-color: rgba(0,0,0,0.6);
+            align-items: center; justify-content: center; backdrop-filter: blur(2px);
+        }
+        .modal.show { display: flex; }
+        .modal-content {
+            background-color: var(--bg-card); padding: 25px; border-radius: var(--radius-lg);
+            width: 90%; max-width: 400px; box-shadow: var(--shadow-float); border: 1px solid var(--border-color);
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        
+        .modal-header { font-size: 1.2rem; font-weight: 700; margin-bottom: 15px; color: var(--text-main); border-bottom: 1px solid var(--divider-color); padding-bottom: 10px; }
+        .modal-body { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; }
+        .modal-input { width: 100%; padding: 12px; border: 1px solid var(--divider-color); background: var(--bg-input); color: var(--text-main); border-radius: 6px; font-size: 1rem; }
+        .modal-label { font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; display: block; }
+        .btn-modal { padding: 10px 20px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 1rem; }
+        .btn-cancel { background: transparent; color: var(--text-secondary); }
+        .btn-save { background: var(--primary-color); color: #000; }
+        .btn-save:hover { background: var(--primary-hover); }
+
+        /* Toast */
+        .toast {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(30px);
+            background: var(--text-main); color: var(--bg-body); padding: 12px 24px; border-radius: 50px;
+            box-shadow: var(--shadow-float); opacity: 0; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 2000; display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 0.9rem;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        /* --- MOBILE RESPONSIVENESS --- */
+        @media (max-width: 768px) {
+            /* Sidebar becomes a drawer */
+            aside {
+                position: fixed; left: 0; top: 0; bottom: 0;
+                transform: translateX(-100%);
+                box-shadow: 2px 0 15px rgba(0,0,0,0.2);
+                width: 280px;
+            }
+            aside.open {
+                transform: translateX(0);
+            }
+
+            /* Main content takes full width */
+            main { width: 100%; }
+
+            /* Show Mobile Menu Button */
+            .mobile-menu-btn { display: block; }
+
+            /* Editor Header Adjustments */
+            .editor-header { padding: 10px; gap: 10px; flex-direction: column; align-items: flex-start; }
+            .header-top-row { width: 100%; justify-content: space-between; }
+            .title-wrapper { width: 100%; }
+            
+            /* Adjust Title Size */
+            .title-input { font-size: 1.2rem; }
+
+            /* Hide button text on mobile to save space */
+            .editor-actions .btn-icon span { display: none; }
+            
+            /* Tool buttons smaller */
+            .tool-btn { width: 32px; height: 32px; }
+            .toolbar { padding: 8px 10px; gap: 4px; }
+
+            /* Modal adjustments */
+            .modal-content { width: 95%; padding: 20px; }
+            
+            /* Empty State Padding */
+            .empty-state { padding: 20px; }
+            .empty-state svg { width: 80px; height: 80px; }
+        }
+        
+        @media (min-width: 769px) {
+            .mobile-overlay { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Mobile Overlay Backdrop -->
+    <div id="mobileOverlay" class="mobile-overlay" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar">
+        <div class="sidebar-header">
+            <div class="header-top">
+                <div class="app-title">
+                    <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                    Notes Pro
+                </div>
+                <button class="theme-toggle" id="themeToggle" title="Switch Theme">
+                    <svg class="sun-icon" style="display: block; width:18px; height:18px; fill:currentColor" viewBox="0 0 24 24"><path d="M6.995 12c0 2.761 2.246 5.007 5.007 5.007s5.007-2.246 5.007-5.007S14.761 6.995 12 6.995 6.995 9.24 6.995 12zM11 19h2v3h-2zm0-17h2v3h-2zm-9 9h3v2H2zm17 0h3v2h-3zM5.637 19.778l-1.414-1.414 2.121-2.121 1.414 1.414zM16.242 6.344l2.122-2.122 1.414 1.414-2.122 2.122zM6.344 7.759 4.223 5.637l1.415-1.414 2.12 2.122zM19.778 18.364l-1.414 1.414-2.122-2.122 1.414-1.414z"/></svg>
+                    <svg class="moon-icon" style="display: none; width:18px; height:18px; fill:currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-3.03 0-5.5-2.47-5.5-5.5 0-1.82.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+                </button>
+            </div>
+            <button class="btn-new" onclick="createNewNote()">
+                <span>+</span> Create Note
+            </button>
+            <input type="text" class="search-box" placeholder="Search notes..." id="searchInput" onkeyup="filterNotes()">
+        </div>
+        <ul class="note-list" id="noteList"></ul>
+    </aside>
+
+    <!-- Main Editor -->
+    <main>
+        <div id="emptyState" class="empty-state">
+            <!-- Mobile Toggle inside Empty State for UX consistency -->
+            <div style="position: absolute; top: 20px; left: 20px; display: block;">
+                <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+            </div>
+
+            <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+            <h2>No Note Selected</h2>
+            <p>Select a note or create a new one.</p>
+        </div>
+
+        <div id="editorContainer" class="editor-container" style="display: none;">
+            <div class="editor-header">
+                <div class="title-wrapper">
+                    <div class="header-top-row">
+                        <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+                        <!-- MODE SWITCHER -->
+                        <div class="mode-switch">
+                            <button class="mode-btn active" id="modeNote" onclick="switchMode('note')">Note</button>
+                            <button class="mode-btn" id="modeEvent" onclick="switchMode('event')">Event</button>
+                        </div>
+                        <div class="editor-actions">
+                            <button class="btn-icon" onclick="toggleFullScreen()" title="Full Screen">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+                            </button>
+                            <button class="btn-icon" onclick="downloadNote('txt')" title="Download Text">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                                <span>TXT</span>
+                            </button>
+                            <button class="btn-icon btn-primary" onclick="downloadNote('html')" title="Save HTML">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                                <span>Save</span>
+                            </button>
+                        </div>
+                    </div>
+                    <input type="text" id="noteTitle" class="title-input" placeholder="Untitled Note">
+                </div>
+            </div>
+
+            <!-- NOTE MODE TOOLBAR -->
+            <div class="toolbar" id="noteToolbar">
+                <button class="tool-btn" onclick="execCmd('bold')" title="Bold"><b>B</b></button>
+                <button class="tool-btn" onclick="execCmd('italic')" title="Italic"><i>I</i></button>
+                <button class="tool-btn" onclick="execCmd('underline')" title="Underline"><u>U</u></button>
+                <button class="tool-btn" onclick="execCmd('strikeThrough')" title="Strike"><s>S</s></button>
+                <div class="tool-separator"></div>
+                <button class="tool-btn" onclick="execCmd('justifyLeft')" title="Left">
+                    <svg viewBox="0 0 24 24" width="18" fill="currentColor"><path d="M3 15h18v-2H3v2zm0 4h18v-2H3v2zm0-8h18V9H3v2zm0-6v2h18V3H3z"/></svg>
+                </button>
+                <button class="tool-btn" onclick="execCmd('insertUnorderedList')" title="List">
+                    <svg viewBox="0 0 24 24" width="18" fill="currentColor"><path d="M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5zm0 12c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zM7 19h14v-2H7v2zm0-6h14v-2H7v2zm0-8v2h14V5H7z"/></svg>
+                </button>
+                <div class="tool-separator"></div>
+                <input type="color" onchange="execCmd('foreColor', this.value)" title="Color">
+                <button class="tool-btn" onclick="execCmd('removeFormat')" title="Clear">
+                    <svg viewBox="0 0 24 24" width="18" fill="currentColor"><path d="M15 16h4v2h-4zm0-8h7v2h-7zm0 4h6v2h-6zM3 18c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V8H3v10zM14 5h-3l-1-1H6L5 5H2v2h12V4z"/></svg>
+                </button>
+            </div>
+
+            <!-- NOTE BODY -->
+            <div id="noteBody" class="editor-body visible" contenteditable="true" oninput="autoSave()"></div>
+
+            <!-- EVENT MODE WRAPPER -->
+            <div id="eventWrapper" class="event-wrapper">
+                <div class="event-tabs-header">
+                    <button class="event-tab active" onclick="switchEventTab(1)">Members <span style="font-size:0.7em; opacity:0.6">1</span></button>
+                    <button class="event-tab" onclick="switchEventTab(2)">Menu <span style="font-size:0.7em; opacity:0.6">2</span></button>
+                    <button class="event-tab" onclick="switchEventTab(3)">Summary <span style="font-size:0.7em; opacity:0.6">3</span></button>
+                </div>
+
+                <!-- Slide 1 -->
+                <div id="slide1" class="event-slide active">
+                    <div class="form-section">
+                        <h3>💰 Member Contribution</h3>
+                        <div class="global-target-box">
+                            <input type="number" id="globalTargetInput" class="input-field" placeholder="Target All" style="flex:1">
+                            <button class="btn-icon-small" style="background:var(--primary-color); color:#000" onclick="setGlobalTarget()">SET ALL</button>
+                        </div>
+                        <div class="input-group">
+                            <input type="text" id="memName" class="input-field" placeholder="Name">
+                            <input type="number" id="memTarget" class="input-field" placeholder="Target">
+                            <input type="number" id="memPaid" class="input-field" placeholder="Paid">
+                            <button class="btn-icon-small btn-add" onclick="addMember()">+</button>
+                        </div>
+                        <div id="membersList"></div>
+                    </div>
+                </div>
+
+                <!-- Slide 2 -->
+                <div id="slide2" class="event-slide">
+                    <div class="form-section">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                            <h3>🛒 Menu List</h3>
+                            <button class="btn-icon btn-pdf" style="padding: 6px 12px; font-size:0.8rem; color:#fff;" onclick="generatePDF()">PDF</button>
+                        </div>
+                        <div class="input-group">
+                            <input type="text" id="itemCategory" class="input-field" placeholder="Category" style="flex:1">
+                            <input type="text" id="itemName" class="input-field" placeholder="Item" style="flex:1.5">
+                            <input type="number" id="itemPrice" class="input-field" placeholder="Cost" style="flex:0.8">
+                            <button class="btn-icon-small btn-add" onclick="addItem()">+</button>
+                        </div>
+                        <div id="menuList"></div>
+                    </div>
+                </div>
+
+                <!-- Slide 3 -->
+                <div id="slide3" class="event-slide">
+                    <div class="summary-grid">
+                        <div class="summary-card">
+                            <h4>Expense</h4>
+                            <div class="big-number" id="sumTotalCost">0</div>
+                        </div>
+                        <div class="summary-card">
+                            <h4>Collected</h4>
+                            <div class="big-number" id="sumCollected">0</div>
+                        </div>
+                        <div class="summary-card" id="balanceCard">
+                            <h4>Balance</h4>
+                            <div class="big-number" id="sumBalance">0</div>
+                        </div>
+                    </div>
+                    <div class="form-section">
+                        <h3>Member Status</h3>
+                        <table class="data-table">
+                            <thead><tr><th>Name</th><th class="text-right">Due</th></tr></thead>
+                            <tbody id="summaryMemberTable"></tbody>
+                        </table>
+                    </div>
+                    <button class="btn-full-report" onclick="generatePDF()">Download PDF Report</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- TOAST -->
+    <div id="toast" class="toast"><span id="toastMessage">Saved</span></div>
+
+    <!-- EDIT MEMBER MODAL -->
+    <div id="editMemberModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Edit Member</div>
+            <div class="modal-body">
+                <label class="modal-label">Name</label>
+                <input type="text" id="editMemName" class="modal-input">
+                <label class="modal-label">Target</label>
+                <input type="number" id="editMemTarget" class="modal-input">
+                <label class="modal-label">Paid</label>
+                <input type="number" id="editMemPaid" class="modal-input">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-modal btn-cancel" onclick="closeModal('editMemberModal')">Cancel</button>
+                <button class="btn-modal btn-save" onclick="saveMemberEdit()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT ITEM MODAL -->
+    <div id="editItemModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Edit Item</div>
+            <div class="modal-body">
+                <label class="modal-label">Category</label>
+                <input type="text" id="editItemCategory" class="modal-input">
+                <label class="modal-label">Item Name</label>
+                <input type="text" id="editItemName" class="modal-input">
+                <label class="modal-label">Cost</label>
+                <input type="number" id="editItemPrice" class="modal-input">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-modal btn-cancel" onclick="closeModal('editItemModal')">Cancel</button>
+                <button class="btn-modal btn-save" onclick="saveItemEdit()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Theme Logic ---
+        const themeToggle = document.getElementById('themeToggle');
+        const sunIcon = document.querySelector('.sun-icon');
+        const moonIcon = document.querySelector('.moon-icon');
+
+        function setTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('smartNotes_theme', theme);
+            if (theme === 'dark') { sunIcon.style.display = 'none'; moonIcon.style.display = 'block'; } 
+            else { sunIcon.style.display = 'block'; moonIcon.style.display = 'none'; }
+        }
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            setTheme(newTheme);
+        }
+        themeToggle.addEventListener('click', toggleTheme);
+        const savedTheme = localStorage.getItem('smartNotes_theme') || 'light';
+        setTheme(savedTheme);
+
+        // --- Core App Logic ---
+        let notes = [];
+        let activeNoteId = null;
+        const noteListEl = document.getElementById('noteList');
+        const emptyStateEl = document.getElementById('emptyState');
+        const editorContainerEl = document.getElementById('editorContainer');
+        const titleInput = document.getElementById('noteTitle');
+        const bodyInput = document.getElementById('noteBody');
+        const sidebar = document.getElementById('sidebar');
+        const mobileOverlay = document.getElementById('mobileOverlay');
+        const searchInput = document.getElementById('searchInput');
+
+        const modeNoteBtn = document.getElementById('modeNote');
+        const modeEventBtn = document.getElementById('modeEvent');
+        const noteToolbar = document.getElementById('noteToolbar');
+        const eventWrapper = document.getElementById('eventWrapper');
+
+        let editingMemberId = null;
+        let editingItemId = null;
+
+        window.onload = function() {
+            loadNotesFromStorage();
+            renderNoteList();
+        };
+
+        function createNewNote() {
+            const newNote = {
+                id: Date.now(),
+                title: '',
+                content: '',
+                type: 'note',
+                updatedAt: new Date().toISOString(),
+                eventData: { budget: 0, globalTarget: 0, members: [], items: [] }
+            };
+            notes.unshift(newNote);
+            saveNotesToStorage();
+            renderNoteList();
+            selectNote(newNote.id);
+            titleInput.focus();
+            // On mobile, close sidebar automatically when creating note
+            if (window.innerWidth <= 768) closeSidebar();
+        }
+
+        function selectNote(id) {
+            activeNoteId = id;
+            const note = notes.find(n => n.id === id);
+            if (!note) { showEmptyState(); return; }
+            
+            emptyStateEl.style.display = 'none';
+            editorContainerEl.style.display = 'flex';
+            titleInput.value = note.title;
+            bodyInput.innerHTML = note.content;
+            switchMode(note.type, false);
+
+            document.querySelectorAll('.note-item').forEach(item => {
+                item.classList.remove('active');
+                if (parseInt(item.dataset.id) === id) item.classList.add('active');
+            });
+            
+            // On mobile, close sidebar when selecting a note
+            if (window.innerWidth <= 768) closeSidebar();
+        }
+
+        function switchMode(mode, save = true) {
+            if(save && activeNoteId) {
+                const note = notes.find(n => n.id === activeNoteId);
+                note.type = mode;
+                saveNotesToStorage();
+                renderNoteList();
+            }
+
+            if(mode === 'note') {
+                modeNoteBtn.classList.add('active');
+                modeEventBtn.classList.remove('active');
+                noteToolbar.style.display = 'flex';
+                bodyInput.classList.add('visible');
+                eventWrapper.classList.remove('visible');
+            } else {
+                modeNoteBtn.classList.remove('active');
+                modeEventBtn.classList.add('active');
+                noteToolbar.style.display = 'none';
+                bodyInput.classList.remove('visible');
+                eventWrapper.classList.add('visible');
+                if(activeNoteId) {
+                    const note = notes.find(n => n.id === activeNoteId);
+                    loadEventData(note.eventData);
+                    switchEventTab(1);
+                }
+            }
+        }
+
+        function deleteNote(e, id) {
+            if(e) e.stopPropagation();
+            if(confirm('Delete this note?')) {
+                notes = notes.filter(n => n.id !== id);
+                saveNotesToStorage();
+                if (activeNoteId === id) { activeNoteId = null; showEmptyState(); }
+                renderNoteList();
+                showToast('Deleted');
+            }
+        }
+
+        function showEmptyState() {
+            emptyStateEl.style.display = 'flex';
+            editorContainerEl.style.display = 'none';
+            activeNoteId = null;
+        }
+
+        function autoSave() {
+            if (!activeNoteId) return;
+            const note = notes.find(n => n.id === activeNoteId);
+            if (note) {
+                note.title = titleInput.value;
+                note.content = bodyInput.innerHTML;
+                note.updatedAt = new Date().toISOString();
+                saveNotesToStorage();
+                const listItem = document.querySelector(`.note-item[data-id="${activeNoteId}"]`);
+                if (listItem) {
+                    listItem.querySelector('.note-item-title').textContent = note.title || 'Untitled Note';
+                    const previewText = note.type === 'note' 
+                        ? (stripHtml(note.content).substring(0, 100) || 'No text')
+                        : `Event • ${note.eventData.members.length} Members`;
+                    listItem.querySelector('.note-item-preview').textContent = previewText;
+                    listItem.querySelector('.note-item-date').textContent = formatDate(note.updatedAt);
+                    noteListEl.prepend(listItem);
+                }
+            }
+        }
+
+        function renderNoteList() {
+            const searchTerm = searchInput.value.toLowerCase();
+            noteListEl.innerHTML = '';
+            notes.forEach(note => {
+                const textContent = (note.title + ' ' + stripHtml(note.content)).toLowerCase();
+                if (searchTerm && !textContent.includes(searchTerm)) return;
+
+                const li = document.createElement('li');
+                li.className = 'note-item';
+                li.dataset.id = note.id;
+                if (note.id === activeNoteId) li.classList.add('active');
+                li.onclick = () => selectNote(note.id);
+
+                const plainTextContent = note.type === 'note' 
+                    ? (stripHtml(note.content) || 'No additional text')
+                    : `Event • Members: ${note.eventData.members.length} | Items: ${note.eventData.items.length}`;
+
+                li.innerHTML = `
+                    <div class="note-item-info">
+                        <div class="note-item-title">${note.title || 'Untitled Note'}</div>
+                        <div class="note-item-preview">${plainTextContent}</div>
+                        <div class="note-item-date">${formatDate(note.updatedAt)}</div>
+                    </div>
+                    <span class="note-type-badge ${note.type}">${note.type}</span>
+                    <button class="btn-delete-note" onclick="deleteNote(event, ${note.id})">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    </button>
+                `;
+                noteListEl.appendChild(li);
+            });
+        }
+
+        function filterNotes() { renderNoteList(); }
+
+        function saveNotesToStorage() { localStorage.setItem('smartNotes_data', JSON.stringify(notes)); }
+        function loadNotesFromStorage() { const data = localStorage.getItem('smartNotes_data'); if (data) notes = JSON.parse(data); }
+        function formatDate(isoString) { return new Date(isoString).toLocaleString(); }
+        function stripHtml(html) { let tmp = document.createElement("DIV"); tmp.innerHTML = html; return tmp.textContent || tmp.innerText || ""; }
+        
+        // --- Sidebar & Mobile Toggle Logic ---
+        function toggleSidebar() {
+            sidebar.classList.toggle('open');
+            mobileOverlay.classList.toggle('active');
+        }
+
+        function closeSidebar() {
+            sidebar.classList.remove('open');
+            mobileOverlay.classList.remove('active');
+        }
+
+        function execCmd(command, value = null) { document.execCommand(command, false, value); bodyInput.focus(); autoSave(); }
+        
+        function downloadNote(format) {
+            if (!activeNoteId) return showToast('No note selected');
+            const note = notes.find(n => n.id === activeNoteId);
+            if (format === 'txt') {
+                if (note.type === 'event') { downloadFullReport(); return; }
+                const title = note.title || 'Untitled Note';
+                let content = title + '\n\n' + stripHtml(note.content);
+                downloadBlob(content, 'text/plain', `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.txt`);
+                showToast('Saved as .txt');
+                return;
+            }
+            if (format === 'html') {
+                const title = note.title || 'Untitled Note';
+                const theme = document.documentElement.getAttribute('data-theme');
+                const bg = theme === 'dark' ? '#121212' : '#ffffff';
+                const text = theme === 'dark' ? '#dfe6e9' : '#2d3436';
+                let content = `<!DOCTYPE html><html style="background:${bg}; color:${text}; font-family:sans-serif; padding:40px;"><head><meta charset="UTF-8"><title>${title}</title></head><body><h1>${title}</h1><div style="line-height:1.6; margin-top:20px;">${note.content}</div></body></html>`;
+                downloadBlob(content, 'text/html', `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.html`);
+                showToast('Saved as .html');
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(err => {}); } 
+            else { if (document.exitFullscreen) { document.exitFullscreen(); } }
+        }
+
+        // --- EVENT MODE LOGIC ---
+        function switchEventTab(index) {
+            document.querySelectorAll('.event-tab').forEach((t, i) => { if(i === index-1) t.classList.add('active'); else t.classList.remove('active'); });
+            document.querySelectorAll('.event-slide').forEach((s, i) => { if(i === index-1) s.classList.add('active'); else s.classList.remove('active'); });
+            if(index === 3) calculateSummary();
+        }
+
+        function loadEventData(data) {
+            renderMembers(data.members);
+            renderMenu(data.items);
+            const globalT = data.globalTarget || 0;
+            document.getElementById('memTarget').value = globalT > 0 ? globalT : '';
+        }
+
+        function setGlobalTarget() {
+            const val = parseFloat(document.getElementById('globalTargetInput').value) || 0;
+            if (!activeNoteId) return;
+            const note = notes.find(n => n.id === activeNoteId);
+            if(val === 0) return showToast('Enter an amount');
+            note.eventData.members.forEach(m => m.target = val);
+            note.eventData.globalTarget = val;
+            document.getElementById('memTarget').value = val;
+            saveAndRefreshEvent();
+            showToast(`Targets updated to ৳${val}`);
+            document.getElementById('globalTargetInput').value = '';
+        }
+
+        function addMember() {
+            const name = document.getElementById('memName').value.trim();
+            const target = parseFloat(document.getElementById('memTarget').value) || 0;
+            const paid = parseFloat(document.getElementById('memPaid').value) || 0;
+            if(!name) return;
+            const note = notes.find(n => n.id === activeNoteId);
+            note.eventData.members.push({ id: Date.now(), name, target, paid });
+            document.getElementById('memName').value = ''; 
+            document.getElementById('memPaid').value = '';
+            saveAndRefreshEvent();
+        }
+
+        function renderMembers(members) {
+            const list = document.getElementById('membersList');
+            list.innerHTML = '';
+            members.forEach((m, i) => {
+                const due = m.target - m.paid;
+                const dueColor = due > 0 ? 'var(--danger-color)' : (due < 0 ? 'var(--success-color)' : 'inherit');
+                list.innerHTML += `
+                    <div class="list-row">
+                        <span class="row-text" style="flex:1">${m.name}</span>
+                        <span class="row-amount" style="font-size:0.85rem; color:var(--text-secondary)">৳${m.target}</span>
+                        <span class="row-amount" style="color:${dueColor}">(${due > 0 ? '+' : ''}${due})</span>
+                        <button class="btn-icon-small btn-edit" style="width:30px; height:30px; padding:0" onclick="openMemberEditModal(${m.id})">✎</button>
+                        <button class="btn-icon-small btn-del" style="width:30px; height:30px; padding:0" onclick="deleteMember(${i})">×</button>
+                    </div>`;
+            });
+        }
+
+        function deleteMember(index) {
+            const note = notes.find(n => n.id === activeNoteId);
+            note.eventData.members.splice(index, 1);
+            saveAndRefreshEvent();
+        }
+
+        function openMemberEditModal(id) {
+            const note = notes.find(n => n.id === activeNoteId);
+            const member = note.eventData.members.find(m => m.id === id);
+            if(!member) return;
+            editingMemberId = id;
+            document.getElementById('editMemName').value = member.name;
+            document.getElementById('editMemTarget').value = member.target;
+            document.getElementById('editMemPaid').value = member.paid;
+            document.getElementById('editMemberModal').classList.add('show');
+        }
+
+        function saveMemberEdit() {
+            if(!editingMemberId) return;
+            const note = notes.find(n => n.id === activeNoteId);
+            const member = note.eventData.members.find(m => m.id === editingMemberId);
+            if(member) {
+                member.name = document.getElementById('editMemName').value.trim();
+                member.target = parseFloat(document.getElementById('editMemTarget').value) || 0;
+                member.paid = parseFloat(document.getElementById('editMemPaid').value) || 0;
+                saveAndRefreshEvent();
+            }
+            closeModal('editMemberModal');
+        }
+
+        function addItem() {
+            const category = document.getElementById('itemCategory').value.trim() || 'General';
+            const name = document.getElementById('itemName').value.trim();
+            const price = parseFloat(document.getElementById('itemPrice').value) || 0;
+            if(!name) return;
+            const note = notes.find(n => n.id === activeNoteId);
+            note.eventData.items.push({ id: Date.now(), category, name, qty: '1', price, done: false });
+            document.getElementById('itemName').value = ''; 
+            document.getElementById('itemPrice').value = '';
+            saveAndRefreshEvent();
+        }
+
+        function updateItemPrice(id, newPrice) {
+            const note = notes.find(n => n.id === activeNoteId);
+            const item = note.eventData.items.find(i => i.id === id);
+            if(item) {
+                item.price = parseFloat(newPrice) || 0;
+                saveAndRefreshEvent();
+            }
+        }
+
+        function renderMenu(items) {
+            const list = document.getElementById('menuList');
+            list.innerHTML = '';
+            const grouped = {};
+            items.forEach(item => {
+                if(!grouped[item.category]) grouped[item.category] = [];
+                grouped[item.category].push(item);
+            });
+
+            for(const [cat, catItems] of Object.entries(grouped)) {
+                let catTotal = 0;
+                let catItemsHtml = '';
+                catItems.forEach((item) => {
+                    catTotal += item.price;
+                    catItemsHtml += `
+                        <div class="list-row ${item.done?'row-done':''}">
+                            <input type="checkbox" class="row-check" ${item.done?'checked':''} onchange="toggleItem(${item.id})">
+                            <span class="row-text">${item.name}</span>
+                            <input type="number" class="row-price-input" value="${item.price}" onchange="updateItemPrice(${item.id}, this.value)">
+                            <button class="btn-icon-small btn-del" style="width:28px; height:28px; padding:0" onclick="deleteItem(${item.id})">×</button>
+                        </div>`;
+                });
+                list.innerHTML += `
+                    <div class="group-container" style="margin-bottom:10px">
+                        <div style="font-size:0.8rem; font-weight:bold; color:var(--text-secondary); margin-bottom:4px; display:flex; justify-content:space-between">
+                            <span>${cat}</span><span>৳${catTotal}</span>
+                        </div>
+                        ${catItemsHtml}
+                    </div>`;
+            }
+        }
+
+        function openItemEditModal(id) {
+            const note = notes.find(n => n.id === activeNoteId);
+            const item = note.eventData.items.find(i => i.id === id);
+            if(!item) return;
+            editingItemId = id;
+            document.getElementById('editItemCategory').value = item.category;
+            document.getElementById('editItemName').value = item.name;
+            document.getElementById('editItemPrice').value = item.price;
+            document.getElementById('editItemModal').classList.add('show');
+        }
+
+        function saveItemEdit() {
+            if(!editingItemId) return;
+            const note = notes.find(n => n.id === activeNoteId);
+            const item = note.eventData.items.find(i => i.id === editingItemId);
+            if(item) {
+                item.category = document.getElementById('editItemCategory').value.trim() || 'General';
+                item.name = document.getElementById('editItemName').value.trim();
+                item.price = parseFloat(document.getElementById('editItemPrice').value) || 0;
+                saveAndRefreshEvent();
+            }
+            closeModal('editItemModal');
+        }
+
+        function toggleItem(id) {
+            const note = notes.find(n => n.id === activeNoteId);
+            const item = note.eventData.items.find(i => i.id === id);
+            if(item) {
+                item.done = !item.done;
+                saveAndRefreshEvent();
+            }
+        }
+
+        function deleteItem(id) {
+            const note = notes.find(n => n.id === activeNoteId);
+            note.eventData.items = note.eventData.items.filter(i => i.id !== id);
+            saveAndRefreshEvent();
+        }
+
+        function calculateSummary() {
+            const note = notes.find(n => n.id === activeNoteId);
+            const members = note.eventData.members;
+            const items = note.eventData.items;
+
+            let totalExpense = 0;
+            items.forEach(i => totalExpense += i.price);
+            let totalCollected = members.reduce((sum, m) => sum + m.paid, 0);
+            let netBalance = totalCollected - totalExpense;
+
+            document.getElementById('sumTotalCost').innerText = '৳' + totalExpense.toLocaleString();
+            document.getElementById('sumCollected').innerText = '৳' + totalCollected.toLocaleString();
+            const balEl = document.getElementById('sumBalance');
+            balEl.innerText = (netBalance >= 0 ? '+' : '') + '৳' + netBalance.toLocaleString();
+            
+            const card = document.getElementById('balanceCard');
+            card.className = 'summary-card ' + (netBalance >= 0 ? 'positive' : 'negative');
+
+            const memTable = document.getElementById('summaryMemberTable');
+            memTable.innerHTML = '';
+            members.forEach(m => {
+                const due = m.target - m.paid;
+                const dueClass = due > 0 ? 'text-right" style="color:var(--danger-color)' : (due < 0 ? 'text-right" style="color:var(--success-color)' : 'text-right');
+                memTable.innerHTML += `<tr><td>${m.name}</td><td class="${dueClass}">${due > 0 ? '+' : ''}${due}</td></tr>`;
+            });
+        }
+
+        function saveAndRefreshEvent() {
+            const note = notes.find(n => n.id === activeNoteId);
+            renderMembers(note.eventData.members);
+            renderMenu(note.eventData.items);
+            saveNotesToStorage();
+            renderNoteList();
+        }
+
+        function downloadFullReport() {
+            const note = notes.find(n => n.id === activeNoteId);
+            if(!note) return;
+            const title = note.title || 'Event Report';
+            let content = `=== ${title.toUpperCase()} ===\n`;
+            content += `Generated: ${new Date().toLocaleString()}\n\n`;
+            let totalExp = note.eventData.items.reduce((sum, i) => sum + i.price, 0);
+            let totalCol = note.eventData.members.reduce((sum, m) => sum + m.paid, 0);
+            content += `Total Expense: ৳${totalExp}\nTotal Collected: ৳${totalCol}\nBalance: ৳${totalCol - totalExp}\n\n`;
+            content += `--- MEMBERS ---\n`;
+            note.eventData.members.forEach(m => {
+                content += `${m.name}: Paid ৳${m.paid}, Due ৳${m.target - m.paid}\n`;
+            });
+            content += `\n--- EXPENSES ---\n`;
+            note.eventData.items.forEach(i => {
+                content += `[${i.category}] ${i.name}: ৳${i.price}\n`;
+            });
+            downloadBlob(content, 'text/plain', `${title.replace(/[^a-z0-9]/gi, '_')}_Report.txt`);
+            showToast('Report Downloaded');
+        }
+
+        function downloadBlob(content, type, filename) {
+            let blob = type.includes('csv') ? new Blob(["\uFEFF" + content], { type: type }) : new Blob([content], { type: type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function generatePDF() {
+            const note = notes.find(n => n.id === activeNoteId);
+            if(!note) return;
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFontSize(18);
+            doc.text(note.title || 'Report', 14, 20);
+            
+            let totalExp = note.eventData.items.reduce((sum, i) => sum + i.price, 0);
+            let totalCol = note.eventData.members.reduce((sum, m) => sum + m.paid, 0);
+            
+            doc.setFontSize(12);
+            doc.text(`Total Expense: ৳${totalExp} | Collected: ৳${totalCol} | Balance: ৳${totalCol-totalExp}`, 14, 30);
+
+            const memberBody = note.eventData.members.map(m => [m.name, m.paid, (m.target-m.paid)]);
+            doc.autoTable({ startY: 40, head: [['Name', 'Paid', 'Due']], body: memberBody, theme: 'grid' });
+
+            const menuBody = note.eventData.items.map(i => [i.category, i.name, i.price]);
+            doc.autoTable({ startY: doc.lastAutoTable.finalY + 10, head: [['Cat', 'Item', 'Cost']], body: menuBody, theme: 'grid' });
+
+            doc.save(`${note.title.replace(/[^a-z0-9]/gi, '_')}.pdf`);
+            showToast('PDF Downloaded');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+            editingMemberId = null;
+            editingItemId = null;
+        }
+
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('show');
+                editingMemberId = null;
+                editingItemId = null;
+            }
+        }
+    </script>
+</body>
+</html> 
